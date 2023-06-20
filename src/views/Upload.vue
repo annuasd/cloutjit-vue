@@ -12,7 +12,7 @@
                           height="500px">
               <p v-for="line, index in fileContent"
                  :key="index"
-                  style="white-space: pre;">
+                 style="white-space: pre;">
                 {{ line }}
               </p>
             </el-scrollbar>
@@ -54,9 +54,9 @@
       </div>
     </el-col>
 
-    <el-col :span="12"
-            offset="1">
-      <div class="box">
+    <el-col :span="12">
+      <div class="box"
+           v-if="isLoad===true">
         <el-table :data="functions"
                   style="width: 100%">
           <el-table-column type="expand">
@@ -80,7 +80,23 @@
           <el-table-column label="参数值类型"
                            prop="argType" />
         </el-table>
-
+        <div v-if="hasDescriptipn==true"
+             class="box"
+             style="margin: 20px; padding: 10px;">
+          <h5>文件描述</h5>
+          <p>{{ fileDescription }}</p>
+        </div>
+      </div>
+      <div v-else
+           class="box"
+           style="padding: 10px;">
+        <h4>模块描述信息</h4>
+        <el-input v-model="descriptionInput"
+                  maxlength="30"
+                  placeholder="输入模块描述信息"
+                  show-word-limit
+                  :disabled="isSelect ? false:true"
+                  type="textarea" />
       </div>
     </el-col>
 
@@ -92,12 +108,21 @@
 import { ref } from 'vue'
 import { genFileId } from 'element-plus'
 import axios from 'axios'
-const isLoad = ref(false);
+//文件是否已经选择
 const isSelect = ref(false);
+//文件是否上传成功
+const isLoad = ref(false);
+//文件是否有描述
+const hasDescriptipn = ref(false);
 const fileList = ref([]);
 const buttonLoad = ref(false);
 const upload = ref(null);
-const fileContent = ref("");
+const fileContent = ref([]);
+const fileDescription = ref();
+//描述符
+const descriptionInput = ref('');
+
+
 const functions = ref([]);
 
 const fileExceed = (files) => {
@@ -110,7 +135,6 @@ const fileExceed = (files) => {
 }
 function fileChange () {
   if (fileList.value.length == 1) {
-
     let file = fileList.value.at(-1).raw;
     let fileName = file.name;
     if (fileName.split('.').at(-1) != 'c') {
@@ -131,6 +155,7 @@ function upLoadFile () {
   let file = fileList.value.pop().raw;
   let formData = new FormData();
   formData.append('f', file);
+  formData.append('description', descriptionInput.value);
   let moduleName = file.name.split('.')[0];
   axios.post('http://localhost:8080/module',
     formData
@@ -140,6 +165,10 @@ function upLoadFile () {
     else {
       isLoad.value = true;
       fileContent.value = data.fileContent;
+      fileDescription.value = data.description;
+      alert(data.description);
+      if (fileDescription.value != null && fileDescription.value != '')
+        hasDescriptipn.value = true;
       axios.post('http://localhost:8080/function',
         { name: moduleName }, {
         headers: {
@@ -151,6 +180,7 @@ function upLoadFile () {
           const data = response.data
           if (data.status == 1) alert(JSON.stringify(data.message));
           else {
+            functions.value = [];
             data.funcInfos.forEach(item => {
               functions.value.push(item);
             });
