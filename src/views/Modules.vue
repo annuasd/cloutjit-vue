@@ -1,0 +1,390 @@
+<template>
+  <el-container>
+    <el-header>
+      <el-row>
+        <el-col :span="12">
+          <div class="selectBox">
+            <el-input v-model="inputModuleName"
+                      @keyup.enter="handleSelect()"
+                      placeholder="查询模块"
+                      class="input-with-select">
+              <template #prepend>
+                <el-button :icon="Search"
+                           @click="handleSelect()" />
+              </template>
+            </el-input>
+          </div>
+        </el-col>
+        <el-col :span="12">
+          <div class="selectBox">
+            <el-input v-model="inputFunctionName"
+                      @keyup.enter="handleSelect()"
+                      placeholder="查询函数"
+                      class="input-with-select">
+              <template #prepend>
+                <el-button :icon="Search"
+                           @click="handleSelect()" />
+              </template>
+              <template #append>
+                <el-select v-model="select"
+                           placeholder="Select"
+                           style="width: 115px">
+                  <el-option label="Restaurant"
+                             value="1" />
+                  <el-option label="Order No."
+                             value="2" />
+                  <el-option label="Tel"
+                             value="3" />
+                </el-select>
+              </template>
+            </el-input>
+          </div>
+        </el-col>
+      </el-row>
+
+    </el-header>
+    <el-main>
+      <el-row :span="12">
+        <el-col :span="12">
+          <div class="box">
+            <el-table :data="modules"
+                      :key="true"
+                      :row-style="{height: '60px'}"
+                      height="250"
+                      style="width: 100%">
+              <el-table-column prop="name"
+                               label="模块名称" />
+              <el-table-column fixed="right"
+                               width="120">
+                <template #default="scope">
+                  <el-button link
+                             type="primary"
+                             size="small"
+                             @click.prevent="addFileTab(scope)">
+                    查看
+                  </el-button>
+                </template>
+              </el-table-column>
+              <el-table-column v-if="isModuleDelete==true"
+                               label="">
+                <template #default="scope">
+                  <el-button size="small"
+                             type="danger"
+                             @click="moduleDelete(scope.row.name, scope.$index)">Delete</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-switch v-model="isModuleDelete" /> 删除模块
+        </el-col>
+
+        <el-col :span="12">
+          <div class="box">
+            <el-table :data="functions"
+                      :key="true"
+                      height="250"
+                      style="width: 100%">
+              <el-table-column type="expand">
+                <template #default="props">
+                  <div m="4">
+                    <p m="t-0 b-2">参数信息: {{ props.row.funcArgs }}</p>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="funcName"
+                               label="函数名称" />
+              <el-table-column prop="moduleName"
+                               label="所属模块" />
+              <el-table-column prop="returnType"
+                               label="返回值类型" />
+              <el-table-column fixed="right"
+                               width="120">
+                <template #default="scope">
+                  <el-button link
+                             type="primary"
+                             size="small"
+                             @click.prevent="addFuncTab(scope)">
+                    查看
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+        </el-col>
+
+      </el-row>
+      <el-row :span="12"
+              :offset="1">
+        <el-col :span="24">
+          <el-tabs v-model="editableTabsValue"
+                   type="card"
+                   closable
+                   class="tabs"
+                   @tab-remove="removeTab">
+            <el-tab-pane v-for="item in editableTabs"
+                         :key="item.name"
+                         :label="item.content.title"
+                         :name="item.name">
+              <div v-if="item.tabid===1"
+                   class="view">
+                <FunctionExeView :moduleName="item.content.moduleName"
+                                 :funcName="item.content.funcName"
+                                 :returnType="item.content.returnType"
+                                 :argType="item.content.argType"
+                                 :argName="item.content.argName" />
+              </div>
+              <div v-else-if="item.tabid===0"
+                   class="view">
+                <FileContentView :fileContent="item.content.fileContent" />
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </el-col>
+      </el-row>
+    </el-main>
+  </el-container>
+</template>
+<script setup>
+import { Search } from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { onMounted } from 'vue'
+import axios from 'axios'
+import FunctionExeView from './FuncExe.vue'
+import FileContentView from './FileContent.vue'
+
+
+
+onMounted(() => {
+  selectAllModules();
+})
+const inputModuleName = ref('');
+const inputFunctionName = ref('');
+const modules = ref([]);
+const functions = ref([]);
+const isModuleDelete = ref(false);
+let moduleToFuncIndexes = new Map();
+let offset = 0;
+
+function selectAllModules () {
+  axios.get('http://localhost:8080/module'
+  ).then(response => {
+    moduleToFuncIndexes.clear();
+    offset = 0;
+    const data = response.data;
+    functions.value = [];
+    modules.value = data.moduleResponses;
+    let funcIndex = 0;
+    data.moduleResponses.forEach(element => {
+      let funcIndexs = [];
+      element.funcInfos.forEach(element => {
+        functions.value.push(element);
+        funcIndexs.push(funcIndex++);
+      });
+      moduleToFuncIndexes.set(element.name, funcIndexs);
+    });
+  })
+}
+
+function selectOneModule (moduleName) {
+  axios.get(`http://localhost:8080/module/${moduleName}`
+  ).then(response => {
+    const data = response.data;
+    moduleToFuncIndexes.clear();
+    offset = 0;
+    modules.value = [];
+    functions.value = [];
+    if (data.name === undefined) {
+      return;
+    }
+    modules.value.push(data);
+    let funcIndexs = [];
+    let funcIndex = 0;
+    data.funcInfos.forEach(element => {
+      functions.value.push(element);
+      funcIndexs.push(funcIndex++);
+    })
+    moduleToFuncIndexes.set(moduleName, funcIndexs);
+  })
+}
+
+function functionsSelect () {
+  let mSet = new Set();
+  axios.get(`http://localhost:8080/function/${inputFunctionName.value}`
+  ).then(response => {
+    functions.value = [];
+    modules.value = [];
+    moduleToFuncIndexes.clear();
+    let funcIndex = 0;
+    offset = 0;
+    response.data.funcInfos.forEach((item, i) => {
+      functions.value.push(response.data.funcInfos.at(i));
+      if (mSet.has(item.moduleName)) return;
+      mSet.add(item.moduleName);
+      axios.get(`http://localhost:8080/module/${item.moduleName}`
+      ).then(response => {
+        const data = response.data;
+        if (data.name === undefined) {
+          alert("我擦，找到一个脱离模块存在的函数");
+          return;
+        }
+        modules.value.push(data);
+        if (moduleToFuncIndexes.has(item.moduleName))
+          moduleToFuncIndexes[item.moduleName].push(funcIndex);
+        else
+          moduleToFuncIndexes.set(item.moduleName, [funcIndex]);
+        ++funcIndex;
+      })
+    })
+  })
+}
+
+function selectFunctionByNameAndModuleName () {
+  axios.get(`http://localhost:8080/function/${inputModuleName.value}/${inputFunctionName.value}`
+  ).then(response => {
+    const data = response.data;
+    functions.value = data.funcInfos;
+    modules.value = [];
+    moduleToFuncIndexes.clear();
+    axios.get(`http://localhost:8080/module/${inputModuleName.value}`
+    ).then(response => {
+      const data = response.data;
+      modules.value.push(data);
+      functions.value.forEach((item, i) => {
+        moduleToFuncIndexes.set(data.name, i);
+      });
+
+    })
+  })
+}
+
+
+function handleSelect () {
+  if (inputModuleName.value === '' && inputFunctionName.value === '') {
+    selectAllModules();
+  }
+  else if (inputModuleName.value != '' && inputFunctionName.value === '') {
+    selectOneModule(inputModuleName.value);
+  }
+  else if (inputModuleName.value === '' && inputFunctionName.value != '') {
+    functionsSelect();
+  } else if (inputModuleName.value != '' && inputFunctionName.value != '') {
+    selectFunctionByNameAndModuleName();
+  }
+}
+
+function moduleDelete (name, index) {
+  modules.value.splice(index, 1);
+  moduleToFuncIndexes.get(name).sort(function (a, b) { return a - b }).forEach(item => {
+    functions.value.splice(item - offset++, 1);
+  });
+  axios.delete(`http://localhost:8080/module/${name}`
+  ).then(response => {
+  })
+}
+
+let tabIndex = 0
+const editableTabsValue = ref('0')
+const editableTabs = ref([])
+class funcTab {
+  title = '';
+  funcName = '';
+  returnType = '';
+  moduleName = '';
+  argType = [];
+  argName = [];
+}
+class moduleTab {
+  title = '';
+  fileContent = [];
+}
+
+function addFileTab (scope) {
+  const row = scope.row;
+  let mt = new moduleTab();
+  mt.title = row.name + '.c';
+  axios.get(`http://localhost:8080/file/${row.name}`
+  ).then(response => {
+    const data = response.data;
+    mt.fileContent = data.fileContent;
+    console.log(JSON.stringify(mt.fileContent))
+    const newTabName = `${++tabIndex}`
+    editableTabs.value.push({
+      name: newTabName,
+      tabid: 0,
+      content: mt
+    })
+    editableTabsValue.value = newTabName
+  })
+
+}
+
+function addFuncTab (scope) {
+  const row = scope.row;
+  let ft = new funcTab();
+  ft.title = row.moduleName + '/' + row.funcName;
+  ft.funcName = row.funcName;
+  ft.returnType = row.returnType;
+  ft.moduleName = row.moduleName;
+  const args = row.funcArgs.split(',');
+  args.forEach(item => {
+    item.trim();
+    const s = item.split(' ');
+    if (s.length === 2) {
+      ft.argType.push(s[0]);
+      ft.argName.push(s[1]);
+    } else {
+      ft.argType.push(s[1]);
+      ft.argName.push(s[2]);
+    }
+
+  })
+  const newTabName = `${++tabIndex}`
+  editableTabs.value.push({
+    name: newTabName,
+    tabid: 1,
+    content: ft
+  })
+  editableTabsValue.value = newTabName
+}
+const removeTab = (targetName) => {
+  const tabs = editableTabs.value
+  let activeName = editableTabsValue.value
+  if (activeName === targetName) {
+    tabs.forEach((tab, index) => {
+      if (tab.name === targetName) {
+        const nextTab = tabs[index + 1] || tabs[index - 1]
+        if (nextTab) {
+          activeName = nextTab.name
+        }
+      }
+    })
+  }
+
+  editableTabsValue.value = activeName
+  editableTabs.value = tabs.filter((tab) => tab.name !== targetName)
+}
+</script>
+<style>
+.selectBox {
+  margin-left: 15px;
+  margin-top: 10px;
+  width: 70%;
+}
+
+.box {
+  margin-right: 10px;
+  box-shadow: var(--el-box-shadow);
+  padding-top: 10px;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.input-with-select .el-input-group__prepend {
+  background-color: var(--el-fill-color-blank);
+}
+.view {
+  height: auto;
+  width: auto;
+}
+</style>
