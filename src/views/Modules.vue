@@ -47,6 +47,7 @@
       <el-row :span="12">
         <el-col :span="12">
           <div class="box">
+            <!---------------------- 模块展示------------------------->
             <el-table :data="modules"
                       :key="true"
                       :row-style="{height: '60px'}"
@@ -54,7 +55,18 @@
                       style="width: 100%">
               <el-table-column prop="name"
                                label="模块名称" />
-              <el-table-column fixed="right"
+              <el-table-column v-if="isModuleDelete==true"
+                               fixed="right"
+                               width="120"
+                               label="">
+                <template #default="scope">
+                  <el-button size="small"
+                             type="danger"
+                             @click="moduleDelete(scope.row.name, scope.$index)">Delete</el-button>
+                </template>
+              </el-table-column>
+              <el-table-column v-else
+                               fixed="right"
                                width="120">
                 <template #default="scope">
                   <el-button link
@@ -65,21 +77,16 @@
                   </el-button>
                 </template>
               </el-table-column>
-              <el-table-column v-if="isModuleDelete==true"
-                               label="">
-                <template #default="scope">
-                  <el-button size="small"
-                             type="danger"
-                             @click="moduleDelete(scope.row.name, scope.$index)">Delete</el-button>
-                </template>
-              </el-table-column>
             </el-table>
           </div>
-          <el-switch v-model="isModuleDelete" /> 删除模块
+          <el-switch v-model="isModuleDelete" />
+          <el-text size="large"
+                   type="warning"> 删除模块 </el-text>
         </el-col>
 
         <el-col :span="12">
           <div class="box">
+            <!----------------------- 函数展示 --------------------------->
             <el-table :data="functions"
                       :key="true"
                       height="250"
@@ -97,6 +104,13 @@
                                label="所属模块" />
               <el-table-column prop="returnType"
                                label="返回值类型" />
+              <el-table-column width="100">
+                <template #default="scope">
+                  <el-tag :type="scope.row.init === true ? 'success': 'warning'"
+                          disable-transitions>{{ initTag(scope.row.init) }}</el-tag>
+                </template>
+
+              </el-table-column>
               <el-table-column fixed="right"
                                width="120">
                 <template #default="scope">
@@ -132,11 +146,16 @@
                                  :funcName="item.content.funcName"
                                  :returnType="item.content.returnType"
                                  :argType="item.content.argType"
-                                 :argName="item.content.argName" />
+                                 :argName="item.content.argName"
+                                 :init="item.content.init"
+                                 :index="item.index"
+                                 @update-tag="handleTagUpdate" />
               </div>
               <div v-else-if="item.tabid===0"
                    class="view">
-                <FileContentView :fileContent="item.content.fileContent" />
+                <FileContentView :fileContent="item.content.fileContent"
+                                 :title="item.content.title"
+                                 :description="item.content.description" />
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -154,7 +173,6 @@ import FunctionExeView from './FuncExe.vue'
 import FileContentView from './FileContent.vue'
 
 
-
 onMounted(() => {
   selectAllModules();
 })
@@ -166,6 +184,11 @@ const isModuleDelete = ref(false);
 let moduleToFuncIndexes = new Map();
 let offset = 0;
 
+const initTag = (init) => init ? "已实例化" : "未实例化";
+
+const handleTagUpdate = (index, init) => functions.value.at(index).init = init;
+
+
 function selectAllModules () {
   axios.get('http://localhost:8080/module'
   ).then(response => {
@@ -173,9 +196,9 @@ function selectAllModules () {
     offset = 0;
     const data = response.data;
     functions.value = [];
-    modules.value = data.moduleResponses;
+    modules.value = data.moduleInfos;
     let funcIndex = 0;
-    data.moduleResponses.forEach(element => {
+    data.moduleInfos.forEach(element => {
       let funcIndexs = [];
       element.funcInfos.forEach(element => {
         functions.value.push(element);
@@ -194,13 +217,13 @@ function selectOneModule (moduleName) {
     offset = 0;
     modules.value = [];
     functions.value = [];
-    if (data.name === undefined) {
+    if (data.moduleInfo.name === undefined) {
       return;
     }
-    modules.value.push(data);
+    modules.value.push(data.moduleInfo);
     let funcIndexs = [];
     let funcIndex = 0;
-    data.funcInfos.forEach(element => {
+    data.moduleInfo.funcInfos.forEach(element => {
       functions.value.push(element);
       funcIndexs.push(funcIndex++);
     })
@@ -224,11 +247,11 @@ function functionsSelect () {
       axios.get(`http://localhost:8080/module/${item.moduleName}`
       ).then(response => {
         const data = response.data;
-        if (data.name === undefined) {
+        if (data.moduleInfo.name === undefined) {
           alert("我擦，找到一个脱离模块存在的函数");
           return;
         }
-        modules.value.push(data);
+        modules.value.push(data.moduleInfo);
         if (moduleToFuncIndexes.has(item.moduleName))
           moduleToFuncIndexes[item.moduleName].push(funcIndex);
         else
@@ -293,10 +316,12 @@ class funcTab {
   moduleName = '';
   argType = [];
   argName = [];
+  init = false;
 }
 class moduleTab {
   title = '';
   fileContent = [];
+  description = '';
 }
 
 function addFileTab (scope) {
@@ -307,12 +332,14 @@ function addFileTab (scope) {
   ).then(response => {
     const data = response.data;
     mt.fileContent = data.fileContent;
+    mt.description = data.description;
     console.log(JSON.stringify(mt.fileContent))
     const newTabName = `${++tabIndex}`
     editableTabs.value.push({
       name: newTabName,
       tabid: 0,
-      content: mt
+      content: mt,
+      index: scope.$index
     })
     editableTabsValue.value = newTabName
   })
@@ -326,24 +353,19 @@ function addFuncTab (scope) {
   ft.funcName = row.funcName;
   ft.returnType = row.returnType;
   ft.moduleName = row.moduleName;
+  ft.init = row.init;
   const args = row.funcArgs.split(',');
   args.forEach(item => {
-    item.trim();
-    const s = item.split(' ');
-    if (s.length === 2) {
-      ft.argType.push(s[0]);
-      ft.argName.push(s[1]);
-    } else {
-      ft.argType.push(s[1]);
-      ft.argName.push(s[2]);
-    }
-
+    const s = item.trim().split(' ');
+    ft.argType.push(s[0]);
+    ft.argName.push(s[1]);
   })
   const newTabName = `${++tabIndex}`
   editableTabs.value.push({
     name: newTabName,
     tabid: 1,
-    content: ft
+    content: ft,
+    index: scope.$index
   })
   editableTabsValue.value = newTabName
 }

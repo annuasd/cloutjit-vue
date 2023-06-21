@@ -61,7 +61,7 @@
                   style="width: 100%">
           <el-table-column type="expand">
             <template #default="props">
-              <div m="4">
+              <div m="4" v-if="hasArg[props.$index]==true">
                 <h4>参数信息</h4>
                 <el-table :data="props.row.args"
                           :border="childBorder">
@@ -71,10 +71,13 @@
                                    prop="type" />
                 </el-table>
               </div>
+              <div v-else>
+                <p>无参数</p>
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="函数名"
-                           prop="funcName" />
+                           prop="name" />
           <el-table-column label="返回值类型"
                            prop="returnType" />
           <el-table-column label="参数值类型"
@@ -122,8 +125,21 @@ const fileDescription = ref();
 //描述符
 const descriptionInput = ref('');
 
-
 const functions = ref([]);
+
+const hasArg = ref([])
+
+class FuncCol {
+  args = [];
+  name = '';
+  returnType = '';
+  argType = '';
+};
+
+class Arg {
+  name = '';
+  type = '';
+}
 
 const fileExceed = (files) => {
   if (upload.value) {
@@ -133,6 +149,7 @@ const fileExceed = (files) => {
     upload.value.handleStart(newfile);
   }
 }
+
 function fileChange () {
   if (fileList.value.length == 1) {
     let file = fileList.value.at(-1).raw;
@@ -166,7 +183,6 @@ function upLoadFile () {
       isLoad.value = true;
       fileContent.value = data.fileContent;
       fileDescription.value = data.description;
-      alert(data.description);
       if (fileDescription.value != null && fileDescription.value != '')
         hasDescriptipn.value = true;
       axios.post('http://localhost:8080/function',
@@ -177,12 +193,28 @@ function upLoadFile () {
       }
       ).then(
         response => {
-          const data = response.data
+          const data = response.data;
           if (data.status == 1) alert(JSON.stringify(data.message));
           else {
             functions.value = [];
-            data.funcInfos.forEach(item => {
-              functions.value.push(item);
+            hasArg.value = [];
+            data.moduleInfo.funcInfos.forEach(item => {
+              let funcCol = new FuncCol();
+              funcCol.name = item.funcName;
+              funcCol.returnType = item.returnType;
+              let argString = item.funcArgs;
+              argString.split(',').forEach((item) => {
+                let str = item.trim();
+                let arg = new Arg();
+                arg.type = str.split(' ')[0];
+                arg.name = str.split(' ')[1];
+                funcCol.args.push(arg);
+                funcCol.argType += arg.type + " ";
+              })
+              funcCol.argType.trim();
+              functions.value.push(funcCol);
+              if(funcCol.argType.length > 1) hasArg.value.push(true);
+              else hasArg.value.push(false);
             });
           }
         }
