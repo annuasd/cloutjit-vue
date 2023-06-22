@@ -198,8 +198,6 @@ const inputFunctionName = ref('');
 const modules = ref([]);
 const functions = ref([]);
 const isModuleDelete = ref(false);
-let moduleToFuncIndexes = new Map();
-let offset = 0;
 //强制重新渲染页面解决el-tabs缓冲问题
 const reRender = ref(true);
 
@@ -213,19 +211,13 @@ const handleTagUpdate = (index, init) => functions.value.at(index).init = init;
 function selectAllModules () {
   axios.get('http://localhost:8080/module'
   ).then(response => {
-    moduleToFuncIndexes.clear();
-    offset = 0;
     const data = response.data;
     functions.value = [];
     modules.value = data.moduleInfos;
-    let funcIndex = 0;
     data.moduleInfos.forEach(element => {
-      let funcIndexs = [];
       element.funcInfos.forEach(element => {
         functions.value.push(element);
-        funcIndexs.push(funcIndex++);
       });
-      moduleToFuncIndexes.set(element.name, funcIndexs);
     });
   })
 }
@@ -234,21 +226,13 @@ function selectOneModule (moduleName) {
   axios.get(`http://localhost:8080/module/${moduleName}`
   ).then(response => {
     const data = response.data;
-    moduleToFuncIndexes.clear();
-    offset = 0;
     modules.value = [];
     functions.value = [];
-    if (data.moduleInfo.name === undefined) {
-      return;
-    }
+    if (data.moduleInfo.name === undefined) return;
     modules.value.push(data.moduleInfo);
-    let funcIndexs = [];
-    let funcIndex = 0;
-    data.moduleInfo.funcInfos.forEach(element => {
+    modules.value.at(-1).funcInfos.forEach(element => {
       functions.value.push(element);
-      funcIndexs.push(funcIndex++);
     })
-    moduleToFuncIndexes.set(moduleName, funcIndexs);
   })
 }
 
@@ -258,9 +242,6 @@ function functionsSelect () {
   ).then(response => {
     functions.value = [];
     modules.value = [];
-    moduleToFuncIndexes.clear();
-    let funcIndex = 0;
-    offset = 0;
     response.data.funcInfos.forEach((item, i) => {
       functions.value.push(response.data.funcInfos.at(i));
       if (mSet.has(item.moduleName)) return;
@@ -273,11 +254,6 @@ function functionsSelect () {
           return;
         }
         modules.value.push(data.moduleInfo);
-        if (moduleToFuncIndexes.has(item.moduleName))
-          moduleToFuncIndexes[item.moduleName].push(funcIndex);
-        else
-          moduleToFuncIndexes.set(item.moduleName, [funcIndex]);
-        ++funcIndex;
       })
     })
   })
@@ -288,16 +264,11 @@ function selectFunctionByNameAndModuleName () {
   ).then(response => {
     const data = response.data;
     functions.value = data.funcInfos;
-    modules.value = [];
-    moduleToFuncIndexes.clear();
+    modules.value.clear;
     axios.get(`http://localhost:8080/module/${inputModuleName.value}`
     ).then(response => {
-      const data = response.data;
-      modules.value.push(data);
-      functions.value.forEach((item, i) => {
-        moduleToFuncIndexes.set(data.name, i);
-      });
-
+      const data = response.data.moduleInfo;
+      modules.value = [data];
     })
   })
 }
@@ -318,20 +289,21 @@ function handleSelect () {
 }
 
 function moduleDelete (name, index) {
+  let funcs = modules.value.at(index).funcInfos;
   modules.value.splice(index, 1);
-  moduleToFuncIndexes.get(name).sort(function (a, b) { return a - b }).forEach(item => {
-    let ft = funcTabMap.get(name + '/' + functions.value.at(item - offset).funcName);
-    if (ft !== undefined) ft.isDelete = true;
-    functions.value.splice(item - offset++, 1);
-  });
+  functions.value = functions.value.filter(item => item.moduleName !== name)
   axios.delete(`http://localhost:8080/module/${name}`
   ).then(response => {
-    reRender.value = false;
-    reRender.value = true;
     let title = name + '.c';
     let mt = moduleTabMap.get(title);
-    if (mt === undefined) return;
-    mt.isDelete = true;
+    if (mt !== undefined)  mt.isDelete = true;
+    funcs.forEach(item => {
+      let ft = funcTabMap.get(name + '/' + item.funcName);
+      if (ft !== undefined) ft.isDelete = true;
+      
+    })
+    reRender.value = false;
+    reRender.value = true;
   })
 }
 
