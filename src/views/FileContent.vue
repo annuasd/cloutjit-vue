@@ -17,8 +17,7 @@
         <el-card>
           <el-text class="mx-1"
                    type="primary">文件描述</el-text>
-          <p v-if="isDesChange==true">{{ newDescription }}</p>
-          <p v-else>{{ description }}</p>
+          <p>{{ description }}</p>
           <el-button link
                      type="primary"
                      size="small"
@@ -39,13 +38,12 @@ import axios from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ref } from 'vue'
 import { onMounted } from 'vue'
-const isDesChange = ref(false);
-const newDescription = ref('');
 const moduleName = ref('');
 onMounted(() => moduleName.value = props.title.split('.')[0]);
+const emit = defineEmits(['updateDescription'])
 
 const open = () => {
-  ElMessageBox.prompt('输入文件描述', {
+  ElMessageBox.prompt('输入文件描述, 不超过30字', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     inputPattern:
@@ -61,8 +59,7 @@ const open = () => {
         }
       }
       ).then(response => {
-        newDescription.value = value.value;
-        isDesChange.value = true;
+        emit('updateDescription', value.value);
         ElMessage({
           type: 'success',
           message: `修改成功`,
@@ -73,7 +70,7 @@ const open = () => {
     .catch(() => {
       ElMessage({
         type: 'info',
-        message: 'Input canceled',
+        message: '取消',
       })
     })
 }

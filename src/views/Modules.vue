@@ -140,22 +140,39 @@
                          :key="item.name"
                          :label="item.content.title"
                          :name="item.name">
-              <div v-if="item.tabid===1"
-                   class="view">
-                <FunctionExeView :moduleName="item.content.moduleName"
-                                 :funcName="item.content.funcName"
-                                 :returnType="item.content.returnType"
-                                 :argType="item.content.argType"
-                                 :argName="item.content.argName"
-                                 :init="item.content.init"
-                                 :index="item.index"
-                                 @update-tag="handleTagUpdate" />
-              </div>
-              <div v-else-if="item.tabid===0"
-                   class="view">
-                <FileContentView :fileContent="item.content.fileContent"
-                                 :title="item.content.title"
-                                 :description="item.content.description" />
+              <!-- 通过v-if强制重新渲染页面解决（疑似）组件缓冲引起的问题 -->
+              <div v-if="reRender===true">
+                <div v-if="item.tabid===1"
+                     class="view">
+                  <el-alert v-if="item.content.isDelete===true"
+                            title="该函数已被删除"
+                            type="error"
+                            :closable="false" />
+                  <FunctionExeView v-else
+                                   :moduleName="item.content.moduleName"
+                                   :funcName="item.content.funcName"
+                                   :returnType="item.content.returnType"
+                                   :argType="item.content.argType"
+                                   :argName="item.content.argName"
+                                   :init="item.content.init"
+                                   :runLogs="item.content.runLogs"
+                                   :index="item.index"
+                                   @update-tag="handleTagUpdate"
+                                   @update-tab="init => item.content.init = init"
+                                   @update-runLogs="value => item.content.runLogs = value" />
+                </div>
+                <div v-else-if="item.tabid===0"
+                     class="view">
+                  <el-alert v-if="item.content.isDelete===true"
+                            title="该模块已被删除"
+                            type="error"
+                            :closable="false" />
+                  <FileContentView v-else
+                                   :fileContent="item.content.fileContent"
+                                   :title="item.content.title"
+                                   :description="item.content.description"
+                                   @update-description=" value =>item.content.description=value" />
+                </div>
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -183,10 +200,14 @@ const functions = ref([]);
 const isModuleDelete = ref(false);
 let moduleToFuncIndexes = new Map();
 let offset = 0;
+//强制重新渲染页面解决el-tabs缓冲问题
+const reRender = ref(true);
+
 
 const initTag = (init) => init ? "已实例化" : "未实例化";
 
 const handleTagUpdate = (index, init) => functions.value.at(index).init = init;
+
 
 
 function selectAllModules () {
@@ -299,16 +320,31 @@ function handleSelect () {
 function moduleDelete (name, index) {
   modules.value.splice(index, 1);
   moduleToFuncIndexes.get(name).sort(function (a, b) { return a - b }).forEach(item => {
+    let ft = funcTabMap.get(name + '/' + functions.value.at(item - offset).funcName);
+    if (ft !== undefined) ft.isDelete = true;
     functions.value.splice(item - offset++, 1);
   });
   axios.delete(`http://localhost:8080/module/${name}`
   ).then(response => {
+    reRender.value = false;
+    reRender.value = true;
+    let title = name + '.c';
+    let mt = moduleTabMap.get(title);
+    if (mt === undefined) return;
+    mt.isDelete = true;
   })
 }
 
-let tabIndex = 0
-const editableTabsValue = ref('0')
-const editableTabs = ref([])
+let tabIndex = 0;
+const editableTabsValue = ref('0');
+const editableTabs = ref([]);
+
+class runLog {
+  date = '';
+  name = '';
+  result = '';
+  args = '';
+}
 class funcTab {
   title = '';
   funcName = '';
@@ -317,16 +353,24 @@ class funcTab {
   argType = [];
   argName = [];
   init = false;
-}
+  isDelete = false;
+  runLogs = [];
+};
 class moduleTab {
   title = '';
   fileContent = [];
   description = '';
-}
+  isDelete = false;
+};
+let funcTabMap = new Map();
+let moduleTabMap = new Map();
+
 
 function addFileTab (scope) {
   const row = scope.row;
-  let mt = new moduleTab();
+  let title = row.name + '.c';
+  let mt = moduleTabMap.get(title);
+  if (mt === undefined) mt = new moduleTab();
   mt.title = row.name + '.c';
   axios.get(`http://localhost:8080/file/${row.name}`
   ).then(response => {
@@ -341,6 +385,7 @@ function addFileTab (scope) {
       content: mt,
       index: scope.$index
     })
+    moduleTabMap.set(title, mt);
     editableTabsValue.value = newTabName
   })
 
@@ -348,18 +393,23 @@ function addFileTab (scope) {
 
 function addFuncTab (scope) {
   const row = scope.row;
-  let ft = new funcTab();
-  ft.title = row.moduleName + '/' + row.funcName;
-  ft.funcName = row.funcName;
-  ft.returnType = row.returnType;
-  ft.moduleName = row.moduleName;
-  ft.init = row.init;
-  const args = row.funcArgs.split(',');
-  args.forEach(item => {
-    const s = item.trim().split(' ');
-    ft.argType.push(s[0]);
-    ft.argName.push(s[1]);
-  })
+  let title = row.moduleName + '/' + row.funcName;
+  let ft = funcTabMap.get(title);
+  if (ft === undefined) {
+    ft = new funcTab();
+    ft.title = row.moduleName + '/' + row.funcName;
+    ft.funcName = row.funcName;
+    ft.returnType = row.returnType;
+    ft.moduleName = row.moduleName;
+    ft.init = row.init;
+    const args = row.funcArgs.split(',');
+    args.forEach(item => {
+      const s = item.trim().split(' ');
+      ft.argType.push(s[0]);
+      ft.argName.push(s[1]);
+    })
+  }
+  funcTabMap.set(title, ft);
   const newTabName = `${++tabIndex}`
   editableTabs.value.push({
     name: newTabName,
@@ -369,6 +419,7 @@ function addFuncTab (scope) {
   })
   editableTabsValue.value = newTabName
 }
+
 const removeTab = (targetName) => {
   const tabs = editableTabs.value
   let activeName = editableTabsValue.value

@@ -85,8 +85,8 @@
         </el-table>
         <div v-if="hasDescriptipn==true"
              class="box"
-             style="margin: 20px; padding: 10px;">
-          <h5>文件描述</h5>
+             style="margin: 20px;">
+             <el-text class="mx-1" size  = "large" type="primary">文件描述</el-text>
           <p>{{ fileDescription }}</p>
         </div>
       </div>
@@ -96,15 +96,13 @@
         <h4>模块描述信息</h4>
         <el-input v-model="descriptionInput"
                   maxlength="30"
-                  placeholder="输入模块描述信息"
+                  placeholder="输入模块描述信息, 不超过30字"
                   show-word-limit
                   :disabled="isSelect ? false:true"
                   type="textarea" />
       </div>
     </el-col>
-
   </el-row>
-
 </template>
 
 <script setup>
@@ -232,6 +230,7 @@ function upLoadFile () {
   padding-top: 20px;
   padding-left: 15px;
   padding-right: 15px;
+  padding-bottom: 10px;
 }
 .box .fileContent {
   height: 550px;
