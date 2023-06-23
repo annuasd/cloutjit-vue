@@ -1,8 +1,8 @@
 <template>
   <el-row style="height: 800px;">
-    <el-col :span="12"
-            v-loading="loading">
-      <div style="margin-right: 10px;">
+    <el-col :span="12">
+      <div v-loading="loading"
+           style="margin-right: 10px;">
         <!-- 引擎初始化后显示的内容 -->
         <el-card v-if="init===true&&runStatus===0">
           <template #header>
@@ -26,6 +26,26 @@
           <el-button type="primary"
                      class="button"
                      @click="handleClickOnRun()">运行</el-button>
+          <el-button link
+                     type="primary"
+                     size="large"
+                     @click.prevent="dialogInputVisible=true">
+            添加输入
+          </el-button>
+          <el-dialog v-model="dialogInputVisible"
+                     title="添加输入信息">
+            <el-input v-model="funcExeInput"
+                      :autosize="{ minRows: 1, maxRows: 10 }"
+                      type="textarea"
+                      placeholder="输入信息">
+            </el-input>
+            <el-button type="primary"
+                       @click="dialogInputVisible = false"
+                       size="small"
+                       style="margin-top:10px;margin-bottom: 10px;">
+              确定
+            </el-button>
+          </el-dialog>
         </el-card>
 
         <!-- 引擎未初始化时显示内容 -->
@@ -46,7 +66,6 @@
 
           </div>
         </el-card>
-
         <!-- 运行成功后显示的内容 -->
         <el-card v-else-if="runStatus===1">
           <template #header>
@@ -65,9 +84,25 @@
                            @click="back">返回</el-button>
               </template>
             </el-result>
+            <el-button type="primary"
+                       link
+                       @click="dialogOutputVisible = true"
+                       size="large"
+                       style="float: right;">
+              查看输出
+            </el-button>
+            <el-dialog v-model="dialogOutputVisible"
+                       title="输出">
+              <el-scrollbar class="logscrollbar"
+                            height="500px">
+                <p v-for="line, index in output"
+                   :key="index">
+                  {{ line }}
+                </p>
+              </el-scrollbar>
+            </el-dialog>
           </div>
         </el-card>
-
         <!-- 运行失败后显示的内容 -->
         <el-card v-else-if="runStatus===2">
           <template #header>
@@ -114,13 +149,47 @@
           <el-table-column prop="args"
                            label="参数值"
                            width="auto" />
+          <el-table-column prop="args"
+                           width="auto">
+            <template #default="scope">
+              <el-button link
+                         type="primary"
+                         size="small"
+                         @click.prevent="showdialogIOLog(scope)">
+                输入/输出
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
-        <el-button style="position:absolute; 
-        right: 0;"
-            type="danger" 
-            text 
-            :disabled="runLogs.length===0 ? true:false"
-            @click="deleteAllLog()">清空</el-button>
+        <el-dialog v-model="dialogIOLogVisible">
+          <el-row>
+            <el-col :span=12>
+              <el-text type="primary"
+                       size="large">输入</el-text>
+              <el-scrollbar class="logscrollbar"
+                            height="500px">
+                <div class="logContent">
+                  {{ runLogs.at(ioLogIndex).input }}
+                </div>
+              </el-scrollbar>
+            </el-col>
+            <el-col :span=12>
+              <el-text type="primary"
+                       size="large">输出</el-text>
+              <el-scrollbar class="logscrollbar"
+                            height="500px">
+                <div class="logContent">
+                  {{ runLogs.at(ioLogIndex).output }}
+                </div>
+              </el-scrollbar>
+            </el-col>
+          </el-row>
+        </el-dialog>
+        <el-button style="position:absolute;right: 0;"
+                   type="danger"
+                   text
+                   :disabled="runLogs.length===0 ? true:false"
+                   @click="deleteAllLog()">清空</el-button>
       </div>
     </el-col>
   </el-row>
@@ -128,6 +197,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElLoading } from 'element-plus'
+
 import axios from 'axios'
 
 const props = defineProps(['moduleName', 'funcName',
@@ -140,6 +210,19 @@ const input = ref([]);
 const errorMessage = ref('');
 const result = ref();
 const logTableRef = ref();
+//弹出窗口
+const dialogInputVisible = ref(false);
+const dialogOutputVisible = ref(false);
+const dialogIOLogVisible = ref(false);
+
+const output = ref([]);
+
+//函数执行是所需要的信息
+const funcExeInput = ref("");
+
+//输入输出弹出框对应的下标
+const ioLogIndex = ref();
+
 onMounted(() => {
   axios.get(`http://localhost:8080/runlog/${props.moduleName}/${props.funcName}`).then(
     response => {
@@ -169,7 +252,8 @@ function handleClickOnRun () {
   axios.put('http://localhost:8080/engine', {
     moduleName: props.moduleName,
     funcName: props.funcName,
-    args: args
+    args: args,
+    input: funcExeInput.value
   }, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
@@ -184,6 +268,9 @@ function handleClickOnRun () {
     } else {
       runStatus.value = 1;
       result.value = data.result;
+      data.output.forEach(item => {
+        output.value.push(item)
+      });
       axios.get(`http://localhost:8080/runlog/${props.moduleName}/${props.funcName}`).then(
         response => {
           const data = response.data;
@@ -219,11 +306,11 @@ function handleClickOnInit () {
   })
 }
 
-function deleteAllLog() {
+function deleteAllLog () {
   axios.delete(`http://localhost:8080/runlog/${props.moduleName}/${props.funcName}`).then(
     response => {
       const data = response.data;
-      if(data.status == 1) {
+      if (data.status == 1) {
         alert(data.message);
       } else {
         emit('updateRunLogs', []);
@@ -231,6 +318,12 @@ function deleteAllLog() {
     }
   )
 }
+
+function showdialogIOLog (scope) {
+  dialogIOLogVisible.value = true;
+  ioLogIndex.value = scope.$index;
+}
+
 
 </script>
 <style>
@@ -249,5 +342,14 @@ function deleteAllLog() {
 }
 .box-card {
   width: 480px;
+}
+.logscrollbar {
+  width: 90%;
+  box-shadow: var(--el-box-shadow);
+}
+.logContent {
+  margin: 10px;
+  white-space: pre;
+
 }
 </style>

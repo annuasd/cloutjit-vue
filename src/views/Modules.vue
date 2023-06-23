@@ -307,12 +307,7 @@ let tabIndex = 0;
 const editableTabsValue = ref('0');
 const editableTabs = ref([]);
 
-class runLog {
-  date = '';
-  name = '';
-  result = '';
-  args = '';
-}
+
 class funcTab {
   title = '';
   funcName = '';

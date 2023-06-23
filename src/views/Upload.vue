@@ -6,9 +6,8 @@
                 :span="18"
                 :style="{'justify-content': (isLoad==true ?'flex-start' : 'center'),
                           'align-items': (isLoad==true ?'start' : 'center')}">
-          <div v-if="isLoad==true"
-               style="display: flex;">
-            <el-scrollbar class="scrollbar"
+          <div v-if="isLoad==true">
+            <el-scrollbar class="fileContentScollbar"
                           height="500px">
               <p v-for="line, index in fileContent"
                  :key="index"
@@ -294,15 +293,8 @@ function upLoadFile () {
   color: white;
 }
 
-.scrollbar {
-  display: flex;
-  width: 500px;
+.fileContentScollbar {
+  width: 100%;
 }
-.scrollbar-item {
-  display: flex;
-  align-items: center;
-  height: 50px;
-  background: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
-}
+
 </style>

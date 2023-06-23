@@ -3,7 +3,7 @@
     <el-col :span="14">
       <div class="contentBox">
         <h5 style="margin-left: 50px;">文件内容</h5>
-        <el-scrollbar class="scrollbar"
+        <el-scrollbar class="contentScrollbar"
                       height="500px">
           <p v-for="line, index in fileContent"
              :key="index">
@@ -81,7 +81,7 @@ p {
   white-space: pre;
 }
 
-.contentBox .scrollbar {
+.contentScrollbar {
   width: 100%;
   box-shadow: var(--el-box-shadow);
   margin-left: 10px;
