@@ -1,5 +1,5 @@
 <template>
-  <el-row>
+  <el-row style="height: 800px;">
     <el-col :span="12"
             v-loading="loading">
       <div style="margin-right: 10px;">
@@ -100,12 +100,14 @@
                   style="width: 100%"
                   :default-sort="{ prop: 'date', order: 'descending' }"
                   height="200">
-          <el-table-column type="index" width="50" fixed/>
+          <el-table-column type="index"
+                           width="50"
+                           fixed />
           <el-table-column fixed
                            prop="date"
                            label="时间"
-                           width="250" 
-                           sortable/>
+                           width="250"
+                           sortable />
           <el-table-column prop="result"
                            label="运行结果"
                            width="120" />
@@ -113,6 +115,12 @@
                            label="参数值"
                            width="auto" />
         </el-table>
+        <el-button style="position:absolute; 
+        right: 0;"
+            type="danger" 
+            text 
+            :disabled="runLogs.length===0 ? true:false"
+            @click="deleteAllLog()">清空</el-button>
       </div>
     </el-col>
   </el-row>
@@ -132,7 +140,6 @@ const input = ref([]);
 const errorMessage = ref('');
 const result = ref();
 const logTableRef = ref();
-
 onMounted(() => {
   axios.get(`http://localhost:8080/runlog/${props.moduleName}/${props.funcName}`).then(
     response => {
@@ -181,7 +188,6 @@ function handleClickOnRun () {
         response => {
           const data = response.data;
           emit('updateRunLogs', data.runLogs);
-          logTableRef.value.setScrollTop(0);
         }
       )
     }
@@ -211,7 +217,19 @@ function handleClickOnInit () {
       emit("updateTab", true);
     }
   })
+}
 
+function deleteAllLog() {
+  axios.delete(`http://localhost:8080/runlog/${props.moduleName}/${props.funcName}`).then(
+    response => {
+      const data = response.data;
+      if(data.status == 1) {
+        alert(data.message);
+      } else {
+        emit('updateRunLogs', []);
+      }
+    }
+  )
 }
 
 </script>

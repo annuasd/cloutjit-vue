@@ -61,7 +61,8 @@
                   style="width: 100%">
           <el-table-column type="expand">
             <template #default="props">
-              <div m="4" v-if="hasArg[props.$index]==true">
+              <div m="4"
+                   v-if="hasArg[props.$index]==true">
                 <h4>参数信息</h4>
                 <el-table :data="props.row.args"
                           :border="childBorder">
@@ -83,11 +84,24 @@
           <el-table-column label="参数值类型"
                            prop="argType" />
         </el-table>
-        <div v-if="hasDescriptipn==true"
+        <div v-if="hasDescription==true"
              class="box"
              style="margin: 20px;">
-             <el-text class="mx-1" size  = "large" type="primary">文件描述</el-text>
+          <el-text class="mx-1"
+                   size="large"
+                   type="primary">文件描述</el-text>
           <p>{{ fileDescription }}</p>
+        </div>
+        <div v-if="hasDeclarations==true"
+             class="box"
+             style="margin: 20px;">
+          <el-text class="mx-1"
+                   size="large"
+                   type="primary">外部符号</el-text>
+          <div v-for="(item, index) in declarations"
+               :key="index">
+            <p>{{ item }}</p>
+          </div>
         </div>
       </div>
       <div v-else
@@ -114,12 +128,16 @@ const isSelect = ref(false);
 //文件是否上传成功
 const isLoad = ref(false);
 //文件是否有描述
-const hasDescriptipn = ref(false);
+const hasDescription = ref(false);
+//是否有外部符号
+const hasDeclarations = ref(true);
+
 const fileList = ref([]);
 const buttonLoad = ref(false);
 const upload = ref(null);
 const fileContent = ref([]);
 const fileDescription = ref();
+const declarations = ref([]);
 //描述符
 const descriptionInput = ref('');
 
@@ -182,7 +200,8 @@ function upLoadFile () {
       fileContent.value = data.fileContent;
       fileDescription.value = data.description;
       if (fileDescription.value != null && fileDescription.value != '')
-        hasDescriptipn.value = true;
+        hasDescription.value = true;
+      else hasDescription.value = false;
       axios.post('http://localhost:8080/function',
         { name: moduleName }, {
         headers: {
@@ -196,6 +215,20 @@ function upLoadFile () {
           else {
             functions.value = [];
             hasArg.value = [];
+
+            if (data.moduleInfo.declarations == "" ||
+              data.moduleInfo.declarations == null ||
+              data.moduleInfo.declarations == undefined) {
+              hasDeclarations.value = false;
+            } else {
+              hasDeclarations.value = true;
+              let declarationsStr = data.moduleInfo.declarations;
+              declarationsStr.trim().split(' ').forEach(item => {
+                declarations.value.push(item);
+              })
+            }
+
+
             data.moduleInfo.funcInfos.forEach(item => {
               let funcCol = new FuncCol();
               funcCol.name = item.funcName;
@@ -211,7 +244,7 @@ function upLoadFile () {
               })
               funcCol.argType.trim();
               functions.value.push(funcCol);
-              if(funcCol.argType.length > 1) hasArg.value.push(true);
+              if (funcCol.argType.length > 1) hasArg.value.push(true);
               else hasArg.value.push(false);
             });
           }
@@ -220,6 +253,7 @@ function upLoadFile () {
     }
   })
 }
+
 </script>
 <style>
 .upload-button {

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import UploadView from '../views/Upload.vue'
 import IndexView from '../views/Index.vue'
 import ModuleView from "../views/Modules.vue"
+import LoginView from "../views/Login.vue"
 const routes = [
   { 
     path: '/', 
@@ -22,6 +23,11 @@ const routes = [
       },
     ],
   },
+  {
+    name: 'login',
+    path: '/login',
+    component: LoginView
+  }
 ]
 
 const router = createRouter({

@@ -201,12 +201,9 @@ const isModuleDelete = ref(false);
 //强制重新渲染页面解决el-tabs缓冲问题
 const reRender = ref(true);
 
-
 const initTag = (init) => init ? "已实例化" : "未实例化";
 
 const handleTagUpdate = (index, init) => functions.value.at(index).init = init;
-
-
 
 function selectAllModules () {
   axios.get('http://localhost:8080/module'
@@ -273,7 +270,6 @@ function selectFunctionByNameAndModuleName () {
   })
 }
 
-
 function handleSelect () {
   if (inputModuleName.value === '' && inputFunctionName.value === '') {
     selectAllModules();
@@ -336,7 +332,6 @@ class moduleTab {
 };
 let funcTabMap = new Map();
 let moduleTabMap = new Map();
-
 
 function addFileTab (scope) {
   const row = scope.row;
