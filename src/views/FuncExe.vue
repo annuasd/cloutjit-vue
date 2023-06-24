@@ -147,7 +147,7 @@
                            label="运行结果"
                            width="120" />
           <el-table-column prop="args"
-                           label="参数值"
+                           label="参数值" 
                            width="auto" />
           <el-table-column prop="args"
                            width="auto">
@@ -169,7 +169,7 @@
               <el-scrollbar class="logscrollbar"
                             height="500px">
                 <div class="logContent">
-                  {{ runLogs.at(ioLogIndex).input }}
+                  {{ runLogs?.at(ioLogIndex)?.input }}
                 </div>
               </el-scrollbar>
             </el-col>
@@ -179,7 +179,7 @@
               <el-scrollbar class="logscrollbar"
                             height="500px">
                 <div class="logContent">
-                  {{ runLogs.at(ioLogIndex).output }}
+                  {{ runLogs?.at(ioLogIndex)?.output }}
                 </div>
               </el-scrollbar>
             </el-col>

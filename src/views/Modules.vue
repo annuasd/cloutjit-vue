@@ -55,6 +55,14 @@
                       style="width: 100%">
               <el-table-column prop="name"
                                label="模块名称" />
+
+              <el-table-column>
+                <template #default="scope">
+                  <el-tag v-if="scope.row.isLib === true"
+                          disable-transitions>链接库</el-tag>
+                </template>
+
+              </el-table-column>
               <el-table-column v-if="isModuleDelete==true"
                                fixed="right"
                                width="120"
@@ -168,10 +176,17 @@
                             type="error"
                             :closable="false" />
                   <FileContentView v-else
-                                   :fileContent="item.content.fileContent"
+                                   :moduleTab="item.content"
                                    :title="item.content.title"
-                                   :description="item.content.description"
-                                   @update-description=" value =>item.content.description=value" />
+                                   @update-description=" value =>item.content.description = value"
+                                   @update-isLib=" value => {
+                                    item.content.modu.isLib = value;
+                                    item.content.isLib = value;
+                                    }"
+                                   @update-usesAndUsedBy="(uses, usedBy)=> {
+                                    item.content.uses = uses;
+                                    item.content.usedBy =usedBy;
+                                   }" />
                 </div>
               </div>
             </el-tab-pane>
@@ -182,6 +197,7 @@
   </el-container>
 </template>
 <script setup>
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { ref } from 'vue'
 import { onMounted } from 'vue'
@@ -285,22 +301,42 @@ function handleSelect () {
 }
 
 function moduleDelete (name, index) {
-  let funcs = modules.value.at(index).funcInfos;
-  modules.value.splice(index, 1);
-  functions.value = functions.value.filter(item => item.moduleName !== name)
-  axios.delete(`http://localhost:8080/module/${name}`
-  ).then(response => {
-    let title = name + '.c';
-    let mt = moduleTabMap.get(title);
-    if (mt !== undefined)  mt.isDelete = true;
-    funcs.forEach(item => {
-      let ft = funcTabMap.get(name + '/' + item.funcName);
-      if (ft !== undefined) ft.isDelete = true;
-      
+  ElMessageBox.confirm(
+    '确定要将模块删除吗？这将删除该模块的链接库以及\n所有函数',
+    '提示',
+    {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  ).then(() => {
+    ElMessage({
+      type: 'success',
+      message: '删除成功！',
     })
-    reRender.value = false;
-    reRender.value = true;
+    let funcs = modules.value.at(index).funcInfos;
+    modules.value.splice(index, 1);
+    functions.value = functions.value.filter(item => item.moduleName !== name)
+    axios.delete(`http://localhost:8080/module/${name}`
+    ).then(response => {
+      let title = name + '.c';
+      let mt = moduleTabMap.get(title);
+      if (mt !== undefined) mt.isDelete = true;
+      funcs.forEach(item => {
+        let ft = funcTabMap.get(name + '/' + item.funcName);
+        if (ft !== undefined) ft.isDelete = true;
+
+      })
+      reRender.value = false;
+      reRender.value = true;
+    })
+  }).catch(() => {
+    ElMessage({
+      type: 'info',
+      message: '取消',
+    })
   })
+
 }
 
 let tabIndex = 0;
@@ -323,7 +359,10 @@ class moduleTab {
   title = '';
   fileContent = [];
   description = '';
+  isLib = false;
   isDelete = false;
+  uses = '';
+  modu;
 };
 let funcTabMap = new Map();
 let moduleTabMap = new Map();
@@ -339,6 +378,9 @@ function addFileTab (scope) {
     const data = response.data;
     mt.fileContent = data.fileContent;
     mt.description = data.description;
+    mt.isLib = data.isLib;
+    mt.uses = data.uses;
+    mt.modu = row;
     console.log(JSON.stringify(mt.fileContent))
     const newTabName = `${++tabIndex}`
     editableTabs.value.push({
